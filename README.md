@@ -145,3 +145,57 @@ JSON Web Token是在各方之间安全地传输信息的好方法。因为可以
 
 ## 5. 使用JWT
 
+### 创建项目，导入依赖
+
+```xml
+<dependency>
+   <groupId>com.auth0</groupId>
+   <artifactId>java-jwt</artifactId>
+   <version>3.4.0</version>
+</dependency>
+```
+
+### 生成token
+
+```java
+@Test
+    public void contextLoads() {
+        Map<String, Object> map = new HashMap<String, Object>();
+        Calendar instance = Calendar.getInstance();
+        instance.add(Calendar.SECOND, 20);
+        String token = JWT.create()
+                .withHeader(map) //head 这里header可以不写 不写默认也是它
+                .withClaim("userId", 21) //payload
+                .withExpiresAt(instance.getTime()) //指定令牌的过期时间
+                .withClaim("username", "zhangsan")
+                .sign(Algorithm.HMAC256("!Q2W#E$RW"));//签名
+
+        /**
+         * eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.
+         * eyJleHAiOjE2MzI2NjgwMzMsInVzZXJJZCI6MjEsInVzZXJuYW1lIjoiemhhbmdzYW4ifQ.
+         * eeS4z6JxnLfH337te59gKM7kC4Qw92E0Xp5vQL6aTcA
+         */
+        System.out.println(token);
+    }
+```
+
+### 根据令牌解析数据
+
+```java
+@Test
+    public void test() {
+        JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256("!Q2W#E$RW")).build();
+        DecodedJWT verify = jwtVerifier.verify("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MzI2NjgwMzMsInVzZXJJZCI6MjEsInVzZXJuYW1lIjoiemhhbmdzYW4ifQ.eeS4z6JxnLfH337te59gKM7kC4Qw92E0Xp5vQL6aTcA");
+        System.out.println(verify.getClaim("userId").asInt());
+        System.out.println(verify.getClaim("username").asString());
+        System.out.println(verify.getExpiresAt());
+    }
+```
+
+### 常见异常信息
+
+- SignatureVerificationException：签名不一致异常
+- TokenExpiredException：令牌过期异常
+
+- AlgorithmMissmatchException：算法不匹配异常
+- InvalidClaimException：失效的payload异常
