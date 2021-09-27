@@ -4,7 +4,15 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/01_jwt/pom.xml" />
+        <option value="$PROJECT_DIR$/jwt/pom.xml" />
+        <option value="$PROJECT_DIR$/02_springboot_jwt/pom.xml" />
+        <option value="$PROJECT_DIR$/02_spb_jwt/pom.xml" />
       </list>
+    </option>
+    <option name="ignoredFiles">
+      <set>
+        <option value="$PROJECT_DIR$/02_springboot_jwt/pom.xml" />
+      </set>
     </option>
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" default="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">

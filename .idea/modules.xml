@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/01_jwt/01_jwt.iml" filepath="$PROJECT_DIR$/01_jwt/01_jwt.iml" />
+      <module fileurl="file://$PROJECT_DIR$/02_spb_jwt/02_spb_jwt.iml" filepath="$PROJECT_DIR$/02_spb_jwt/02_spb_jwt.iml" />
+      <module fileurl="file://$PROJECT_DIR$/02_springboot_jwt/02_springboot_jwt.iml" filepath="$PROJECT_DIR$/02_springboot_jwt/02_springboot_jwt.iml" />
       <module fileurl="file://$PROJECT_DIR$/JWT.iml" filepath="$PROJECT_DIR$/JWT.iml" />
     </modules>
   </component>
