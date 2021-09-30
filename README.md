@@ -196,6 +196,313 @@ JSON Web Token是在各方之间安全地传输信息的好方法。因为可以
 
 - SignatureVerificationException：签名不一致异常
 - TokenExpiredException：令牌过期异常
-
 - AlgorithmMissmatchException：算法不匹配异常
 - InvalidClaimException：失效的payload异常
+
+## 6. 封装工具类
+
+```java
+package com.ftj.util;
+
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
+
+import java.util.Calendar;
+import java.util.Map;
+
+/**
+ * Created by fengtj on 2021/9/27 8:09
+ */
+public class JWTUtil {
+
+    private static final String SIGN = "!Q@W#E$R";
+
+    /**
+     * 生成token header.payload.sign
+     *
+     * @param map
+     * @return
+     */
+    public static String getToken(Map<String, String> map) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DATE, 7); //默认七天过期
+
+        //创建jwt bulider
+        JWTCreator.Builder builder = JWT.create();
+        //payload
+        map.forEach((k, v) -> {
+            builder.withClaim(k, v);
+        });
+        String token = builder.withExpiresAt(calendar.getTime())
+                .sign(Algorithm.HMAC256(SIGN));
+        return token;
+    }
+
+    /**
+     * 验证token合法性，且获取token信息
+     *
+     * @param token
+     */
+    public static DecodedJWT verify(String token) {
+        return JWT.require(Algorithm.HMAC256(SIGN)).build().verify(token);
+    }
+
+    /**
+     * 获取token信息方法
+     *
+     * @param token
+     * @return
+     */
+//    public static DecodedJWT getTokenInfos(String token) {
+//        DecodedJWT verify = JWT.require(Algorithm.HMAC256(SIGN)).build().verify(token);
+//        return verify;
+//    }
+}
+```
+
+## 7. 整合springboot
+
+```markdown
+# 0、搭建springboot+mybatis+jwt环境
+- 引入依赖
+- 编写配置
+- 编写业务层
+- 编写测试接口
+```
+
+### 引入依赖
+
+```xml
+<dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>3.4.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>2.1.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.12</version>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid</artifactId>
+            <version>1.1.19</version>
+        </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.26</version>
+        </dependency>
+```
+
+### 编写配置
+
+```
+spring.datasource.type=com.alibaba.druid.pool.DruidDataSource
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql:///ftj?characterEncoding=UTF-8
+spring.datasource.username=root
+spring.datasource.password=password
+
+mybatis.type-aliases-package=com.ftj.entity
+mybatis.mapper-locations=classpath:mapper/*.xml
+
+logging.level.com.ftj.dao=debug
+```
+
+### 编写业务层
+
+```java
+//pojo 数据库同理，建这三个column就行
+@Data
+public class User {
+
+    private Long id;
+
+    private String username;
+
+    private String password;
+}
+
+//dao
+@Mapper
+public interface UserDao {
+
+    User login(User user);
+}
+
+//mapper.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ftj.dao.UserDao">
+    <select id="login" parameterType="User" resultType="User">
+        select * from user where username=#{username,jdbcType=VARCHAR} and password=#{password,jdbcType=VARCHAR}
+    </select>
+</mapper>
+
+//service
+public interface UserService {
+
+    User login(User user);
+}
+
+//serviceImpl
+@Service
+@Transactional
+public class UserServiceImpl implements UserService {
+
+    @Resource
+    private UserDao userDao;
+
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public User login(User user) {
+        User userDB = userDao.login(user);
+        if (userDB != null) return userDB;
+        throw new RuntimeException("登录失败~~~~");
+    }
+}
+```
+
+### 编写测试接口
+
+```java
+@RestController
+@Slf4j
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("/user/login")
+    public Map<String, Object> login(User user) {
+        log.info("用户名：[{}] 密码：[{}]", user.getUsername(), user.getPassword());
+        Map<String, Object> map = new HashMap<>();
+        try {
+            User loginDB = userService.login(user);
+            Map<String, String> payload = new HashMap<>();
+            map.put("id", loginDB.getId());
+            map.put("username", loginDB.getUsername());
+            //生成jwt令牌
+            String token = JWTUtil.getToken(payload);
+            map.put("state", true);
+            map.put("msg", "认证成功");
+            map.put("token", token);
+        } catch (Exception e) {
+            map.put("state", false);
+            map.put("msg", "认证失败");
+        }
+        return map;
+    }
+
+    @PostMapping("/user/test")
+    public Map<String, Object> test(String token) {
+        Map<String, Object> map = new HashMap<>();
+        log.info("当前token：【{}】", token);
+        try {
+            DecodedJWT verify = JWTUtil.verify(token);
+            map.put("state", true);
+            map.put("msg", "请求成功！");
+            return map;
+        } catch (SignatureVerificationException e) {
+            e.printStackTrace();
+            map.put("msg", "无效签名！");
+        } catch (TokenExpiredException e) {
+            e.printStackTrace();
+            map.put("msg", "token已过期！");
+        } catch (AlgorithmMismatchException e) {
+            map.put("msg", "算法不一致！");
+            e.printStackTrace();
+        } catch (Exception e) {
+            map.put("msg", "token无效！");
+            e.printStackTrace();
+        }
+        map.put("state", false);
+        return map;
+    }
+}
+```
+
+## 8. 优化，把jwt验证写到拦截器统一处理
+
+```java
+@Component
+public class JWTInterceptor implements HandlerInterceptor {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        Map<String, Object> map = new HashMap<>();
+        //获取请求头中的令牌
+        String token = request.getHeader("token");
+        try {
+            JWTUtil.verify(token);
+            return true;
+        } catch (SignatureVerificationException e) {
+            e.printStackTrace();
+            map.put("msg", "无效签名！");
+        } catch (TokenExpiredException e) {
+            e.printStackTrace();
+            map.put("msg", "token已过期！");
+        } catch (AlgorithmMismatchException e) {
+            map.put("msg", "算法不一致！");
+            e.printStackTrace();
+        } catch (Exception e) {
+            map.put("msg", "token无效！");
+            e.printStackTrace();
+        }
+        map.put("state", false);
+        //响应到前台
+        String json = new ObjectMapper().writeValueAsString(map);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().println(json);
+        return false;
+    }
+}
+@Configuration
+public class InterceptorConfig implements WebMvcConfigurer {
+
+    @Resource
+    private JWTInterceptor jwtInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(jwtInterceptor)
+                .addPathPatterns("/user/test")
+                .excludePathPatterns("/user/login"); //得放行生成jwt验证码的接口，一般我们会把验证码放请求头里边
+    }
+}
+```
+
+### 优化接口业务逻辑
+
+```java
+@PostMapping("/user/test")
+    public Map<String, Object> test(String token) {
+        Map<String, Object> map = new HashMap<>();
+        //代码改造，处理业务逻辑，改造前代码，看上一个commit
+        map.put("state", true);
+        map.put("msg", "请求成功！");
+        return map;
+    }
+```
