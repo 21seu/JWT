@@ -48,26 +48,9 @@ public class UserController {
     @PostMapping("/user/test")
     public Map<String, Object> test(String token) {
         Map<String, Object> map = new HashMap<>();
-        log.info("当前token：【{}】", token);
-        try {
-            DecodedJWT verify = JWTUtil.verify(token);
-            map.put("state", true);
-            map.put("msg", "请求成功！");
-            return map;
-        } catch (SignatureVerificationException e) {
-            e.printStackTrace();
-            map.put("msg", "无效签名！");
-        } catch (TokenExpiredException e) {
-            e.printStackTrace();
-            map.put("msg", "token已过期！");
-        } catch (AlgorithmMismatchException e) {
-            map.put("msg", "算法不一致！");
-            e.printStackTrace();
-        } catch (Exception e) {
-            map.put("msg", "token无效！");
-            e.printStackTrace();
-        }
-        map.put("state", false);
+        //代码改造，处理业务逻辑，改造前代码，看上一个commit
+        map.put("state", true);
+        map.put("msg", "请求成功！");
         return map;
     }
 }
